@@ -2,54 +2,44 @@ import pandas as pd
 import yfinance as yf
 import requests
 
-# --- Demo data ---
-def get_demo_data():
-    return pd.DataFrame({
-        "Anno": list(range(2010, 2024)),
-        "Valore": [i*10 for i in range(2010, 2024)]
-    })
-
 # --- World Bank ---
 def get_world_bank_data(indicator, country="IT", start_year=2010, end_year=2023):
-    url = f"http://api.worldbank.org/v2/country/{country}/indicator/{indicator}?format=json&date={start_year}:{end_year}"
-    resp = requests.get(url)
-    data = resp.json()[1]
-    df = pd.DataFrame({
-        "Anno": [int(d['date']) for d in data],
-        "Valore": [d['value'] for d in data]
-    }).sort_values("Anno")
+    url = f"http://api.worldbank.org/v2/country/{country}/indicator/{indicator}?date={start_year}:{end_year}&format=json"
+    response = requests.get(url)
+    data = response.json()
+    if len(data) < 2:
+        return pd.DataFrame(columns=["Anno", "Valore"])
+    records = [{"Anno": int(item["date"]), "Valore": item["value"]} for item in data[1] if item["value"] is not None]
+    df = pd.DataFrame(records)
     return df
 
 # --- Yahoo Finance ---
 def get_stock_data(ticker):
-    df = yf.download(ticker, progress=False)
+    df = yf.download(ticker)
     df.reset_index(inplace=True)
-    df.rename(columns={"Date":"Data", "Close":"Prezzo"}, inplace=True)
+    df = df.rename(columns={"Date": "Data", "Close": "Prezzo"})
     return df[["Data", "Prezzo"]]
 
-# --- ISTAT (esempio generico, usa API ISTAT se disponibili) ---
+# --- ISTAT ---
 def get_istat_data(dataset_code, start_year=2010, end_year=2023):
-    # Per demo, ritorna valori casuali
-    df = pd.DataFrame({
-        "Anno": list(range(start_year, end_year+1)),
-        "Valore": [100+i*5 for i in range(end_year-start_year+1)]
-    })
+    # Questo è un esempio fittizio, da sostituire con API reale ISTAT se disponibile
+    years = list(range(start_year, end_year + 1))
+    values = [1000 + i*50 for i in range(len(years))]
+    df = pd.DataFrame({"Anno": years, "Valore": values})
     return df
 
-# --- Eurostat (demo) ---
+# --- Eurostat ---
 def get_eurostat_data(dataset_code, start_year=2010, end_year=2023):
-    df = pd.DataFrame({
-        "Anno": list(range(start_year, end_year+1)),
-        "Valore": [50+i*3 for i in range(end_year-start_year+1)]
-    })
+    # Questo è un esempio fittizio, da sostituire con API reale Eurostat se disponibile
+    years = list(range(start_year, end_year + 1))
+    values = [500 + i*30 for i in range(len(years))]
+    df = pd.DataFrame({"Anno": years, "Valore": values})
     return df
 
-# --- Top 10 aziende italiane per fatturato ---
-def get_top_italian_companies():
-    # Esempio: recupero dati reali da Wikipedia
-    url = "https://it.wikipedia.org/wiki/Lista_delle_principali_imprese_italiane_per_fatturato"
-    tables = pd.read_html(url, decimal=",", thousands=".")
-    df = tables[0].iloc[:10]  # prende le prime 10
-    df = df[["Azienda", "Fatturato (milioni €)"]].rename(columns={"Fatturato (milioni €)":"Fatturato"})
-    df["Fatturato"] = df["Fatturato"].str.replace(".", "", regex=False).astype(float)
+# --- Demo dati ---
+def get_demo_data():
+    df = pd.DataFrame({
+        "Anno": [2018, 2019, 2020, 2021, 2022],
+        "Valore": [100, 150, 200, 250, 300]
+    })
     return df
