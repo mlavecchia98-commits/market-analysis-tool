@@ -1,12 +1,17 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import openai
+from openai import OpenAI
 import os
 from data_sources import get_world_bank_data, get_stock_data, get_istat_data, get_eurostat_data, get_demo_data
 
-# --- OpenAI API key ---
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# --- Recupero API key ---
+api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+if not api_key:
+    st.error("❌ API Key mancante. Aggiungila in st.secrets o come variabile d'ambiente OPENAI_API_KEY.")
+    st.stop()
+
+client = OpenAI(api_key=api_key)
 
 # --- Funzione per interpretare la frase ---
 def interpret_request_with_ai(user_input):
@@ -18,17 +23,13 @@ def interpret_request_with_ai(user_input):
     4. periodo (start_year, end_year)
     Frase: {user_input}
     """
-    
-    client = openai.OpenAI()
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
-    content = response.choices[0].message.content.strip()
-    
     import json
-    return json.loads(content)
+    return json.loads(response.choices[0].message.content)
 
 # --- Funzione per creare grafico ---
 def plot_chart(df, x_col, y_col, title):
