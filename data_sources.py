@@ -1,90 +1,46 @@
-import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import openai
-import os
-from data_sources import get_world_bank_data, get_stock_data, get_istat_data, get_eurostat_data, get_demo_data
+import yfinance as yf
+import wbdata
+from datetime import datetime
 
-# --- OpenAI API key ---
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# --- Funzione per interpretare la frase ---
-def interpret_request_with_ai(user_input):
-    prompt = f"""
-    Analizza la frase e restituisci in JSON:
-    1. tipo di dato (es: GDP, popolazione, fatturato, azioni, inflazione, ecc.)
-    2. fonte preferita (World Bank, ISTAT, Eurostat, Yahoo Finance)
-    3. paese o azienda
-    4. periodo (start_year, end_year)
-    Frase: {user_input}
-    """
-    
-    client = openai.OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
+def get_world_bank_data(indicator, country="IT", start_year=2010, end_year=2023):
+    """Scarica dati dal World Bank."""
+    df = wbdata.get_dataframe(
+        {indicator: indicator},
+        country=country,
+        data_date=(datetime(start_year, 1, 1), datetime(end_year, 12, 31))
     )
-    content = response.choices[0].message.content.strip()
-    
-    import json
-    return json.loads(content)
+    df = df.reset_index()
+    df.rename(columns={indicator: "Valore", "date": "Anno"}, inplace=True)
+    return df
 
-# --- Funzione per creare grafico ---
-def plot_chart(df, x_col, y_col, title):
-    fig, ax = plt.subplots(figsize=(10,6))
-    if pd.api.types.is_numeric_dtype(df[y_col]):
-        ax.plot(df[x_col], df[y_col], marker="o", color="skyblue")
-    else:
-        ax.bar(df[x_col], df[y_col], color="skyblue")
-    ax.set_title(title)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    return fig
+def get_stock_data(ticker="AAPL"):
+    """Scarica dati azioni da Yahoo Finance."""
+    df = yf.download(ticker)
+    df.reset_index(inplace=True)
+    df.rename(columns={"Close": "Prezzo", "Date": "Data"}, inplace=True)
+    return df
 
-# --- Interfaccia Streamlit ---
-st.title("📊 Market Analysis Tool")
-st.write("Scrivi una frase in linguaggio naturale per generare grafici con dati reali.")
+def get_istat_data(dataset_code, start_year=2010, end_year=2023):
+    """Dati demo ISTAT (simulazione)."""
+    df = pd.DataFrame({
+        "Anno": list(range(start_year, end_year + 1)),
+        "Valore": [i * 1000 for i in range(start_year, end_year + 1)]
+    })
+    return df
 
-user_input = st.text_input("La tua domanda:")
+def get_eurostat_data(dataset_code, start_year=2010, end_year=2023):
+    """Dati demo Eurostat (simulazione)."""
+    df = pd.DataFrame({
+        "Anno": list(range(start_year, end_year + 1)),
+        "Valore": [i * 500 for i in range(start_year, end_year + 1)]
+    })
+    return df
 
-if user_input:
-    try:
-        params = interpret_request_with_ai(user_input)
-        st.write("🔍 Parametri interpretati:", params)
-
-        tipo = params.get("tipo", "demo").lower()
-        fonte = params.get("fonte", "").lower()
-        paese = params.get("paese", "IT")
-        azienda = params.get("azienda", "AAPL")
-        start_year = params.get("start_year", 2010)
-        end_year = params.get("end_year", 2023)
-
-        if fonte == "world bank":
-            if tipo in ["gdp", "pil"]:
-                df = get_world_bank_data("NY.GDP.MKTP.CD", country=paese, start_year=start_year, end_year=end_year)
-                fig = plot_chart(df, "Anno", "Valore", f"PIL {paese}")
-            elif tipo == "popolazione":
-                df = get_world_bank_data("SP.POP.TOTL", country=paese, start_year=start_year, end_year=end_year)
-                fig = plot_chart(df, "Anno", "Valore", f"Popolazione {paese}")
-
-        elif fonte == "istat":
-            df = get_istat_data(dataset_code=tipo, start_year=start_year, end_year=end_year)
-            fig = plot_chart(df, "Anno", "Valore", f"Dati ISTAT: {tipo}")
-
-        elif fonte == "eurostat":
-            df = get_eurostat_data(dataset_code=tipo, start_year=start_year, end_year=end_year)
-            fig = plot_chart(df, "Anno", "Valore", f"Dati Eurostat: {tipo}")
-
-        elif fonte == "yahoo finance":
-            df = get_stock_data(azienda)
-            fig = plot_chart(df, "Data", "Prezzo", f"Andamento azioni {azienda}")
-
-        else:
-            df = get_demo_data()
-            fig = plot_chart(df, "Anno", "Valore", "Esempio dati")
-
-        st.pyplot(fig)
-
-    except Exception as e:
-        st.error(f"Errore: {e}")
+def get_demo_data():
+    """Dati demo generici."""
+    df = pd.DataFrame({
+        "Anno": list(range(2010, 2024)),
+        "Valore": [i * 10 for i in range(2010, 2024)]
+    })
+    return df
